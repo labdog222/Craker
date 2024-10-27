@@ -148,22 +148,5 @@ class ProjectTree:
 
         return None
 
-# Example usage
-if __name__ == "__main__":
-    # Define filters to include only .py files in the 'src' folder and exclude .css files in the 'static' folder
-    include_filter = IncludeFilter(extensions=[''], folders=['prompt'])
-    exclude_filter = ExcludeFilter(extensions=['.pyc'], folders=['prompt'])
 
-    # Initialize ProjectTree with filters
-    project_tree = ProjectTree(
-        "/Users/mailiya/documents/github/interviewai/interviewai",
-        display_mode="full",
-        include_filter=include_filter,
-        exclude_filter=exclude_filter
-    )
-
-    # Display the project structure
-    print("Project Structure:")
-    print(project_tree.display_structure())
-    print(project_tree.get_structure())
 
