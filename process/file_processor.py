@@ -7,6 +7,49 @@ class FileProcessor:
         self.files = {file['path']: file for file in files}
         self.processed_files = set()  # Track processed file paths
 
+    def process_batch_files(self, count):
+        """Process files in batches up to the specified count."""
+        batch_data = {"filename": [], "path": [], "content": []}
+        files_processed = 0
+
+        for file_path, file_data in self.files.items():
+            if file_path not in self.processed_files:
+                # Add file data to the current batch
+                self.processed_files.add(file_path)
+                batch_data["filename"].append(file_data.get('filename'))
+                batch_data["path"].append(file_path)
+                batch_data["content"].append(file_data.get('content'))
+                files_processed += 1
+
+                # If batch is full, yield it and reset for the next batch
+                if files_processed == count:
+                    yield batch_data
+                    batch_data = {"filename": [], "path": [], "content": []}
+                    files_processed = 0
+
+        # Yield any remaining files if they don't form a full batch
+        if batch_data["filename"]:
+            yield batch_data
+
+    def execute(self, mode="batch", count=3):
+        all_files_data = []  # List to hold each batch as a dictionary
+
+        if mode == "multiple":
+            # Process files in batches
+            for batch in self.process_batch_files(count):
+                all_files_data.append(batch)
+
+        elif mode == "single":
+            # Process files one by one
+            while True:
+                result = self.process_single_file()
+                if not result:
+                    break
+                all_files_data.append(result)
+
+        if all_files_data:
+            self.save_result(all_files_data, mode)
+
     def process_single_file(self):
         """Process each unprocessed file one by one continuously."""
         for file_path, file_data in self.files.items():
@@ -18,43 +61,6 @@ class FileProcessor:
                     "content": [file_data.get('content')]
                 }
         return None  # No unprocessed files remain
-
-    def execute(self, mode="batch", count=3):
-        all_files_data = []  # List to hold each file's data as a dictionary with array values
-
-        if mode == "single":
-            while True:
-                result = self.process_single_file()
-                if not result:
-                    break
-                all_files_data.append(result)
-
-        elif mode == "multiple":
-            while True:
-                result = self.process_batch_files(count)
-                if not result:
-                    break
-                all_files_data.extend(result)  # Append batch results
-
-        if all_files_data:
-            self.save_result(all_files_data, mode)
-
-    def process_batch_files(self, count):
-        """Multi-file processing mode: processes a batch of files up to the specified count."""
-        batch_data = []
-        files_processed = 0
-
-        for file_path, file_data in self.files.items():
-            if file_path not in self.processed_files and files_processed < count:
-                self.processed_files.add(file_path)
-                batch_data.append({
-                    "filename": [file_data.get('filename')],
-                    "path": [file_path],
-                    "content": [file_data.get('content')]
-                })
-                files_processed += 1
-
-        return batch_data if files_processed > 0 else None
 
     def save_result(self, data, mode):
         now = datetime.datetime.now()
@@ -69,7 +75,6 @@ class FileProcessor:
             json.dump(data, f, indent=4)
 
         print(f"All results saved to {file_path}")
-
 
 if __name__ == "__main__":
     # JSON file path
@@ -91,7 +96,7 @@ if __name__ == "__main__":
     processor = FileProcessor(file_structure, files)
 
     # Execute single-file processing (processing one file at a time)
-    processor.execute(mode="single")
+    processor.execute(mode="multiple")
 
     # Execute multiple-file processing with a count of 3 files per batch
     # processor.execute(mode="multiple", count=3)
