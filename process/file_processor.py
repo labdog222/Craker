@@ -13,23 +13,25 @@ class FileProcessor:
         self.files = {file['path']: file for file in files}
         self.processed_files = set()  # Track processed file paths
 
-    def process_single_file(self):
-        """Single file processing mode: returns each file with filename, path, and content."""
-        result = []
+    def process_batch_files(self, count):
+        """Processes a batch of files up to the specified count."""
+        batch = []
 
+        files_processed = 0
         for file_path, file_data in self.files.items():
-            if file_path not in self.processed_files:
+            if file_path not in self.processed_files and files_processed < count:
                 self.processed_files.add(file_path)
-                result.append({
+                batch.append({
                     "filename": file_data.get('filename'),
                     "path": file_path,
                     "content": file_data.get('content')
                 })
+                files_processed += 1
 
-        return result
+        return batch if batch else None  # Return None if no files left to process
 
-    def save_result(self, data):
-        """Save the merged result as a JSON file with a filename containing the current date and time."""
+    def save_result(self, data, batch_index):
+        """Save each batch result as a JSON file with a filename containing the current date, time, and batch index."""
         # Get the current date and time
         now = datetime.datetime.now()
         date_str = now.strftime("%Y%m%d")  # Format: 20241027
@@ -40,29 +42,34 @@ class FileProcessor:
         os.makedirs(save_dir, exist_ok=True)  # Create directory if it doesn't exist
 
         # Filename and complete path
-        filename = f"split_{time_str}.json"
+        filename = f"batch_{batch_index}_{time_str}.json"
         file_path = os.path.join(save_dir, filename)
 
         # Save data to JSON file
         with open(file_path, "w") as f:
             json.dump(data, f, indent=4)
 
-        print(f"Result saved to {file_path}")
+        print(f"Batch {batch_index} saved to {file_path}")
 
-    def execute(self, mode="single", count=1, search_mode="bfs"):
+    def execute(self, mode="batch", count=3):
         """
-        Execute file processing.
-        :param mode: Processing mode, options are single, multiple, random
-        :param count: File count, used for multiple and random modes
-        :param search_mode: Search mode, options are bfs, dfs
+        Execute file processing in batch mode.
+        :param mode: Processing mode, currently only supports batch mode
+        :param count: File count per batch
         """
-        if mode == "single":
-            result = self.process_single_file()
-        else:
-            raise ValueError("Invalid processing mode")
+        if mode != "batch":
+            raise ValueError("Invalid processing mode, only 'batch' mode is supported for this method")
 
-        # Save the single file processing result
-        self.save_result(result)
+        batch_index = 1
+        while True:
+            # Process a batch of files
+            result = self.process_batch_files(count)
+            if not result:
+                break  # Exit loop if no more files to process
+
+            # Save each batch result
+            self.save_result(result, batch_index)
+            batch_index += 1
 
 
 if __name__ == "__main__":
@@ -84,5 +91,5 @@ if __name__ == "__main__":
     # Initialize the file processor
     processor = FileProcessor(file_structure, files)
 
-    # Execute single-file processing
-    processor.execute(mode="single")
+    # Execute batch processing with a count of 3 files per batch
+    processor.execute(mode="batch", count=3)
