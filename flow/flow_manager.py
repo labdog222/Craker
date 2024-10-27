@@ -1,8 +1,9 @@
 import os
 import json
 import threading
-import time
 from datetime import datetime
+import re
+import time
 from assembler.package import PackageExporter
 from process.file_processor import FileProcessor
 from input.project_tree import ProjectTree
@@ -47,33 +48,40 @@ class FlowManager:
         with FlowManager.write_lock:
             self.exporter.export_to_json()
 
-        # Load the exported JSON data with retries if format is incorrect
+        # 获取当天日期以创建相应的目录路径
         date_today = datetime.now().strftime("%Y%m%d")
         output_dir = os.path.join("../data", date_today)
-        latest_export = sorted(os.listdir(output_dir))[-1]
+
+        # 正则表达式匹配文件名中的时间戳
+        def extract_timestamp(file_name):
+            match = re.search(r'combine_(\d{6})\.json', file_name)
+            return match.group(1) if match else None
+
+        # 查找符合条件的文件并按时间戳倒序排序
+        json_files = [f for f in os.listdir(output_dir) if f.startswith("combine_") and f.endswith(".json")]
+        json_files.sort(key=lambda x: extract_timestamp(x), reverse=True)
+
+        # 检查是否找到符合条件的文件
+        if not json_files:
+            raise FileNotFoundError("No JSON files found in the output directory.")
+
+        # 选择最新的文件
+        latest_export = json_files[0]
         file_path = os.path.join(output_dir, latest_export)
 
-        # 尝试读取文件，重试多次以确保格式正确
-        retries = 3
-        for attempt in range(retries):
-            with open(file_path, "r") as f:
-                data = json.load(f)
+        # 尝试读取文件
+        with open(file_path, "r") as f:
+            data = json.load(f)
 
-            # 检查数据是否为字典格式
-            if isinstance(data, dict):
-                file_structure = data.get("get_structure", {})
-                files = data.get("files", [])
-                self.processor = FileProcessor(file_structure, files)
-                print("Project exported and FileProcessor initialized.")
-                return
+        # 检查数据是否为字典格式
+        if not isinstance(data, dict):
+            raise ValueError("Loaded JSON data is not a dictionary.")
 
-            # 如果格式不正确，等待并重试
-            print(f"Attempt {attempt + 1}/{retries}: JSON format incorrect, retrying...")
-            time.sleep(1)
-
-        # 如果所有尝试都失败，则抛出异常
-        raise ValueError("Failed to load JSON data as a dictionary after multiple attempts.")
-
+        # 初始化 FileProcessor
+        file_structure = data.get("get_structure", {})
+        files = data.get("files", [])
+        self.processor = FileProcessor(file_structure, files)
+        print("Project exported and FileProcessor initialized.")
 
     def process_files(self, mode="batch", count=3):
         """
@@ -87,6 +95,7 @@ class FlowManager:
         # Process files and save results
         self.processor.execute(mode=mode, count=count)
         print(f"Files processed in {mode} mode with count={count}.")
+
 
 # Usage example
 if __name__ == "__main__":
@@ -104,4 +113,4 @@ if __name__ == "__main__":
         exclude_folders=exclude_folders
     )
     manager.export_project()
-    manager.process_files(mode="single", count=3)  # Or mode="single"
+    manager.process_files(mode="multiple", count=3)  # Or mode="batch"
