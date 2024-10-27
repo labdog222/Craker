@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
     # 初始化 ProjectTree 和 PackageExporter
     project_tree = ProjectTree(
-        root_path="/Users/mailiya/documents/github/interviewai/interviewai",
+        root_path="/Users/mailiya/documents/github/interviewai/interviewai/llm",
         display_mode="full",
         include_filter=include_filter,
         exclude_filter=exclude_filter
